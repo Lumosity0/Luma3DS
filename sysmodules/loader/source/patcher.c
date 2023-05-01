@@ -192,7 +192,7 @@ static inline bool findLayeredFsSymbols(u8 *code, u32 size, u32 *fsMountArchive,
     return found == 4;
 }
 
-static inline bool findLayeredFsPayloadOffset(u8 *code, u32 size, u32 roSize, u32 dataSize, u32 roAddress, u32 dataAddress, u32 *payloadOffset, u32 *pathOffset, u32 *pathAddress)
+static inline bool findLayeredFsPayloadOffset(u8 *code, u32 size, u32 roSize, u32 dataSize, u32 textAddress, u32 roAddress, u32 dataAddress, u32 *payloadOffset, u32 *pathOffset, u32 *pathAddress)
 {
     u32 roundedTextSize = ((size + 4095) & 0xFFFFF000),
         roundedRoSize = ((roSize + 4095) & 0xFFFFF000),
@@ -252,7 +252,7 @@ static inline bool findLayeredFsPayloadOffset(u8 *code, u32 size, u32 roSize, u3
         if(strSpace != 0xFFFFFFFF)
         {
             *pathOffset = strSpace;
-            *pathAddress = 0x100000 + strSpace;
+            *pathAddress = textAddress + strSpace;
         }
     }
 
@@ -481,7 +481,7 @@ exit:
     return ret;
 }
 
-static inline bool patchLayeredFs(u64 progId, u8 *code, u32 size, u32 textSize, u32 roSize, u32 dataSize, u32 roAddress, u32 dataAddress)
+static inline bool patchLayeredFs(u64 progId, u8 *code, u32 size, u32 textSize, u32 roSize, u32 dataSize, u32 textAddress, u32 roAddress, u32 dataAddress)
 {
     /* Here we look for "/luma/titles/[u64 titleID in hex, uppercase]/romfs"
        If it exists it should be a folder containing ROMFS files */
@@ -502,7 +502,7 @@ static inline bool patchLayeredFs(u64 progId, u8 *code, u32 size, u32 textSize, 
         pathAddress = 0xDEADCAFE;
 
     if(!findLayeredFsSymbols(code, textSize, &fsMountArchive, &fsRegisterArchive, &fsTryOpenFile, &fsOpenFileDirectly) ||
-       !findLayeredFsPayloadOffset(code, textSize, roSize, dataSize, roAddress, dataAddress, &payloadOffset, &pathOffset, &pathAddress)) return false;
+       !findLayeredFsPayloadOffset(code, textSize, roSize, dataSize, textAddress, roAddress, dataAddress, &payloadOffset, &pathOffset, &pathAddress)) return false;
 
     static const char *updateRomFsMounts[] = { "rom2:",
                                                "rex:",
@@ -529,8 +529,8 @@ static inline bool patchLayeredFs(u64 progId, u8 *code, u32 size, u32 textSize, 
     romfsRedirPatchSubstituted2 = *(u32 *)(code + fsTryOpenFile);
     romfsRedirPatchHook2 = MAKE_BRANCH(payloadOffset + (u32)&romfsRedirPatchHook2 - (u32)romfsRedirPatch, fsTryOpenFile + 4);
     romfsRedirPatchCustomPath = pathAddress;
-    romfsRedirPatchFsMountArchive = 0x100000 + fsMountArchive;
-    romfsRedirPatchFsRegisterArchive = 0x100000 + fsRegisterArchive;
+    romfsRedirPatchFsMountArchive = textAddress + fsMountArchive;
+    romfsRedirPatchFsRegisterArchive = textAddress + fsRegisterArchive;
     romfsRedirPatchArchiveId = archiveId;
     memcpy(&romfsRedirPatchUpdateRomFsMount, updateRomFsMounts[updateRomFsIndex], 4);
 
@@ -546,7 +546,7 @@ static inline bool patchLayeredFs(u64 progId, u8 *code, u32 size, u32 textSize, 
     return true;
 }
 
-void patchCode(u64 progId, u16 progVer, u8 *code, u32 size, u32 textSize, u32 roSize, u32 dataSize, u32 roAddress, u32 dataAddress)
+void patchCode(u64 progId, u16 progVer, u8 *code, u32 size, u32 textSize, u32 roSize, u32 dataSize, u32 textAddress, u32 roAddress, u32 dataAddress)
 {
     bool isHomeMenu = progId == 0x0004003000008F02LL || //USA Home Menu
                       progId == 0x0004003000008202LL || //JPN Home Menu
@@ -876,7 +876,7 @@ void patchCode(u64 progId, u16 progVer, u8 *code, u32 size, u32 textSize, u32 ro
 
             if(loadTitleLocaleConfig(progId, &mask, &regionId, &languageId, &countryId, &stateId))
                 svcKernelSetState(0x10001, ((u32)stateId << 24) | ((u32)countryId << 16) | ((u32)languageId << 8) | ((u32)regionId << 4) | (u32)mask , progId);
-            if(!patchLayeredFs(progId, code, size, textSize, roSize, dataSize, roAddress, dataAddress)) goto error;
+            if(!patchLayeredFs(progId, code, size, textSize, roSize, dataSize, textAddress, roAddress, dataAddress)) goto error;
         }
     }
 

@@ -150,7 +150,8 @@ static Result loadCode(const ExHeader_Info *exhi, u64 programHandle, const prog_
             lzss_decompress((u8 *)mapped->text_addr + size);
     }
 
-    patchCode(titleId, csi->flags.remaster_version, (u8 *)mapped->text_addr, mapped->total_size << 12, csi->text.size, csi->rodata.size, csi->data.size, csi->rodata.address, csi->data.address);
+    patchCode(titleId, csi->flags.remaster_version, (u8 *)mapped->text_addr, mapped->total_size << 12, csi->text.size,
+        csi->rodata.size, csi->data.size, csi->text.address, csi->rodata.address, csi->data.address);
 
     return 0;
 }
