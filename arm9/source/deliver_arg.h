@@ -1,7 +1,6 @@
-
 /*
 *   This file is part of Luma3DS
-*   Copyright (C) 2016-2020 Aurora Wright, TuxSH
+*   Copyright (C) 2022 Aurora Wright, TuxSH
 *
 *   This program is free software: you can redistribute it and/or modify
 *   it under the terms of the GNU General Public License as published by
@@ -27,19 +26,12 @@
 
 #pragma once
 
-#include <3ds/types.h>
-#include "menu.h"
+#include "types.h"
 
-extern Menu rosalinaMenu;
+u8 *loadDeliverArg(void);
+void commitDeliverArg(void);
 
-void RosalinaMenu_TakeScreenshot(void);
-void RosalinaMenu_ChangeScreenBrightness(void);
-void RosalinaMenu_ShowCredits(void);
-void RosalinaMenu_ProcessList(void);
-void RosalinaMenu_SaveSettings(void);
-void RosalinaMenu_PowerOff(void);
-void RosalinaMenu_Reboot(void);
-void RosalinaMenu_Cheats(void);
+bool hasValidTlncAutobootParams(void);
+bool isTwlToCtrLaunch(void); // assumes TLNC block is valid
 
-bool rosalinaMenuShouldShowDebugInfo(void);
-void RosalinaMenu_ShowDebugInfo(void);
+bool configureHomebrewAutoboot(void);

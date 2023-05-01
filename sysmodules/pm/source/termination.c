@@ -6,6 +6,7 @@
 #include "exheader_info_heap.h"
 #include "task_runner.h"
 #include "launch.h"
+#include "reslimit.h"
 
 void forceMountSdCard(void)
 {
@@ -419,6 +420,11 @@ static void ChainloadHomebrewDirtyAsync(void *argdata)
     }
     ProcessList_Unlock(&g_manager.processList);
 
+    // Account for race condition with libctru (till January 2023), causing
+    // a deadlock between svcExitProcess and svcTerminateProcess, which wouldn't happen
+    // if Nintendo were using proper atomics.
+    svcSleepThread(50 * 1000 * 1000LL);
+
     res = commitPendingTerminations(3 * 1000 * 1000 * 1000LL); // 3s, what NS is using
     ExHeaderInfoHeap_Delete(exheaderInfo);
     g_manager.waitingForTermination = false;
@@ -435,11 +441,15 @@ static void ChainloadHomebrewDirtyAsync(void *argdata)
             ProcessList_Unlock(&g_manager.processList);
         } while (app != NULL);
 
+        // There is a small time window where we could fail (with another app spawning)
         // Since this is a dirty workaround for hb support on SAFE_FIRM, we can opt not to support
         // launch-from-gamecard/update support.
-        launchFlags &= ~PMLAUNCHFLAG_USE_UPDATE_TITLE;
+        // Also clear the debug queue flag, obviously (it'll be reset by the "force next app debug"
+        // mechanism if needed)
+        launchFlags &= ~(PMLAUNCHFLAG_USE_UPDATE_TITLE | PMLAUNCHFLAG_QUEUE_DEBUG_APPLICATION);
         launchFlags |= PMLAUNCHFLAGEXT_FAKE_DEPENDENCY_LOADING;
-        res = launchTitleImplWrapper(NULL, NULL, &programInfo, NULL, launchFlags);
+        assertSuccess(setAppCpuTimeLimit(0));
+        res = LaunchTitle(NULL, &programInfo, launchFlags, false);
     }
 }
 
